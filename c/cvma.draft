@@ -83,72 +83,72 @@ import dep2
   clown
 
 section bss
-  a8  arr1 23
-  a16 arr2 25
-  a32 arr3 10
-  a64 arr3 10
-  i64 x
-  f64 pi
+  alloc_a8  arr1 23
+  alloc_a16 arr2 25
+  alloc_a32 arr3 10
+  alloc_a64 arr3 10
+  alloc_i64 x
+  alloc_f64 pi
 
 section data
-  a8  str   0xab 0xbc 0xcd 0xff
-  a16 words 0x1212 0x2323 0x3434
-  i64 num   123498123498
+  init_a8  str   0xab 0xbc 0xcd 0xff
+  init_a16 words 0x1212 0x2323 0x3434
+  init_i64 num   123498123498
 
 section text
 # parameters are introduced after the colon symbol
 # as a tuple of pairs (type.name) followed by a tuple of types
 # fun: (i64.num, i64.iter, i64.size, i64.buff) -> i64
-factorial: i64.n -> i64
+factorial : n:i64 -> i64
 {
-  i64.read-local n  # n
-  i64.push 0        # n 0
-  i64.cmp           # (n `cmp` 0)
-  jle exit1         #
+  n              # n
+  0:i64          # n 0
+  cmp_i64        # (n `cmp` 0)
+  jle exit1      #
 
-  i64.read-local n  # n
-  i64.read-local n  # n n
-  i64.dec-s         # n (n-1)
-  call factorial    # n (fac (n-1))
-  i64.mul           # n*(fac (n-1))
+  n              # n
+  n              # n n
+  dec_i64        # n (n-1)
+  call factorial # n (fac (n-1))
+  mul_i64        # n*(fac (n-1))
   ret
 
-exit1:
-  i64.push 1        # 1
+.exit1
+  1:i64          # 1
   ret
 }
 
-fibonacci: i64.n -> i64
+fibonacci : n:i64 -> i64
 {
-  i64.read-local n  # n
-  i64.push 0        # n
+  n                 # n
+  0:i64             # n
   jz exit0          # n
-  i64.push 1        # n 1
-  i64.cmp           # n`cmp`1
+  1:i64             # n 1
+  cmp_i64           # n`cmp`1
   jeq exit1         #
-  i64.read-local n  # n
-  i64.dec           # n-1
+  n                 # n
+  dec_i64           # n-1
   call fibonacci    # f(n-1)
-  i64.read-local n  # f(n-1) n
-  i64.dec           # f(n-1) (n-1)
-  i64.dec           # f(n-1) (n-2)
+  n                 # f(n-1) n
+  dec_i64           # f(n-1) (n-1)
+  dec_i64           # f(n-1) (n-2)
   call fibonacci    # f(n-1) f(n-2)
-  i64.add           # f(n-1) + f(n-2)
+  add_i64           # f(n-1) + f(n-2)
 
-exit1:
-  i64.push 1
-exit0:
+.exit1
+  1:i64
+.exit0
   ret
 }
 
 main: () -> i64
 {
-  i64.push 14
-  i64.push 28
+  14:i64
+  28:i64
   call d1.f
 
   call dep1.f
 
-  i64.push 0
+  0:i64
   ret
 }
