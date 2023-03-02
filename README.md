@@ -3,7 +3,7 @@
 ## CVM
 ### Runtime Description
 
-## CVM Compiler
+## CVM Assembler
 ### Assembly Language
 
 ## CVM Disassembler
