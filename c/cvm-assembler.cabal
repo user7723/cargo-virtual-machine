@@ -6,6 +6,7 @@ maintainer:         jmp.loop@kittens.org
 
 library
   exposed-modules:
+    Module
   build-depends:
       base
     , bytestring
@@ -16,7 +17,6 @@ library
     lib
   ghc-options:
     -Wall
-    -O2
   default-language: Haskell2010
 
 executable cvma
@@ -30,7 +30,6 @@ executable cvma
     , bytestring
   ghc-options:
     -Wall
-    -O2
   default-language: Haskell2010
 
 -- test-suite tests
