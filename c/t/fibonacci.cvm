@@ -1,0 +1,33 @@
+module fibonacci
+
+export
+  fibonacci : n:i64 -> i64
+
+section bss
+
+section data
+
+section text
+
+fibonacci : n:i64 -> i64
+{
+  n                 # n
+  0:i64             # n
+  jz exit0          # n
+  1:i64             # n 1
+  cmp_i64           # n`cmp`1
+  jeq exit1         #
+  n                 # n
+  dec_i64           # n-1
+  call fibonacci    # f(n-1)
+  n                 # f(n-1) n
+  dec_i64           # f(n-1) (n-1)
+  dec_i64           # f(n-1) (n-2)
+  call fibonacci    # f(n-1) f(n-2)
+  add_i64           # f(n-1) + f(n-2)
+
+.exit1
+  1:i64
+.exit0
+  ret
+}

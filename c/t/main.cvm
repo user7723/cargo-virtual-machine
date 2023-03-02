@@ -1,0 +1,32 @@
+module main
+
+enter main
+
+export
+  main : () -> i64
+
+import fibonacci as fib
+  fibonacci
+
+import factorial as fac
+  factorial
+
+section bss
+  alloc_i64 x
+  alloc_i64 y
+
+section data
+  init_i64 n 5
+  init_i64 c 0
+
+section text
+
+main : () -> i64
+{
+  n                  # 5
+  call fib.fibonacci # fib(5)
+  call fac.factorial # fac(fib(5))
+
+  c                  # fac(fib(5)) 0
+  ret
+}

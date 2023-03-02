@@ -1,0 +1,30 @@
+module factorial
+
+export
+  factorial : i64 -> i64
+
+section bss
+
+section data
+
+section text
+
+factorial : n:i64 -> i64
+{
+  n              # n
+  0:i64          # n 0
+  cmp_i64        # (n `cmp` 0)
+  jle exit1      #
+
+  n              # n
+  n              # n n
+  dec_i64        # n (n-1)
+  call factorial # n (fac (n-1))
+  mul_i64        # n*(fac (n-1))
+  ret
+
+.exit1
+  1:i64          # 1
+  ret
+}
+
