@@ -1,0 +1,135 @@
+[] = Array
+
+ExportTable = [Label × Type]
+
+# Type table will maintain mappings from
+# function/global indices to their type signatures
+TypeTable = [Type]
+
+# GlobalBindsTable is a mapping from
+# indices to variables and functions
+GlobalBindsTable = [Bind]
+
+Bind = Variable
+     | Function
+
+Variable = Label × Value
+
+# The resolved label will containg symbolic
+# info for debugging purposes only
+Label
+  = String            # unresolved
+  | String × InstAddr # resolved
+
+# Each value is typed explicitly
+Value = Data × Idx Type
+
+Function
+  = Label     # function's label
+  × [Label]   # labels local to that function
+  × Body      # function's body
+  × Ptr Scope # function's local scope (Parameters and local variables)
+  × Idx Type  # function's type signature
+
+FunDepsGraph = [FunDep]
+
+FunDep = Idx Function × [Idx Function]
+
+# The list of program's instructions
+Body = [Instruction]
+
+# Pointer is just an unsigned integral value of 64 bit
+Ptr a = UInt64
+
+# Function's scope is a list of bindings, that will be constituted
+# of bound function's arguments and it's local variables
+Scope = [Variable]
+
+Idx a = Integer
+
+Type
+  = Functional FunctionalType
+  | Constant ConstType
+
+FunctionalType
+  # list of input types that the function
+  # is going to consume from the stack
+  = [ConstType]
+  # list of output types that are going
+  # to be returned on the stack
+  × [ConstType]
+
+ConstantType = Unit | I64 | F64
+
+Unit = Unit # unit is going to indicate the abscence of stack mutation
+I64 = Int64
+F64 = Double
+
+
+--------------------------------------------------------------------------------
+module Modula
+
+export
+  factorial : i64 -> i64
+  fibonacci : i64 -> i64
+
+import module.submod.dep1 as d1
+  f
+  g
+  h
+
+import dep2
+  fun
+  clown
+
+# parameters are introduced after the colon symbol
+# as a tuple of pairs (type.name) followed by a tuple of types
+# fun: (i64.num, i64.iter, i64.size, i64.buff) -> i64
+factorial: i64.n -> i64
+{
+  i64.read-local n  # n
+  i64.push 0        # n 0
+  i64.cmp           # (n `cmp` 0)
+  jle exit1         #
+
+  i64.read-local n  # n
+  i64.read-local n  # n n
+  i64.dec-s         # n (n-1)
+  call factorial    # n (fac (n-1))
+  i64.mul           # n*(fac (n-1))
+  ret
+
+exit1:
+  i64.push 1        # 1
+  ret
+}
+
+fibonacci: i64.n -> i64
+{
+  i64.read-local n  # n
+  i64.push 0        # n
+  jz exit0          # n
+  i64.push 1        # n 1
+  i64.cmp           # n`cmp`1
+  jeq exit1         #
+  i64.read-local n  # n
+  i64.dec           # n-1
+  call fibonacci    # f(n-1)
+  i64.read-local n  # f(n-1) n
+  i64.dec           # f(n-1) (n-1)
+  i64.dec           # f(n-1) (n-2)
+  call fibonacci    # f(n-1) f(n-2)
+  i64.add           # f(n-1) + f(n-2)
+
+exit1:
+  i64.push 1
+exit0:
+  ret
+}
+
+main: () -> ()
+  i64.push 14
+  i64.push 28
+  call d1.f
+
+  call dep1.f
