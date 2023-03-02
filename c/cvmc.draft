@@ -82,6 +82,20 @@ import dep2
   fun
   clown
 
+section bss
+  b.arr1 23
+  w.arr2 25
+  d.arr3 10
+  q.arr3 10
+  i64.x
+  f64.pi
+
+section data
+  i64.x   123498123498
+  b.str   0xab 0xbc 0xcd 0xff
+  w.words 0x1212 0x2323 0x3434
+
+section text
 # parameters are introduced after the colon symbol
 # as a tuple of pairs (type.name) followed by a tuple of types
 # fun: (i64.num, i64.iter, i64.size, i64.buff) -> i64
