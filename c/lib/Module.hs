@@ -6,35 +6,26 @@ module Module
   , ExportEntry(..)
   , ImportEntry(..)
   , Name
-  , Type(..)
-  , FunctionalType(..)
-  , ConstantType(..)
   , Body(..)
   , AllocDirective(..)
-  , AllocVar(..)
-  , AllocArray(..)
-  , ArrayType(..)
   , InitDirective(..)
-  , InitDirectiveVar(..)
-  , InitIntegral(..)
-  , InitFloating(..)
-  , InitDirectiveArray(..)
+  , ArrayType(..)
   , FunctionDef(..)
   , FunctionSignature(..)
-  , Parameter(..)
-  , Constant(..)
   , FunctionBody
   , LabeledOperator(..)
-  , StaticMemoryInst(..)
   , Inst(..)
   , Operator(..)
   , Operand(..)
-  , typeToText
+  , QualifiedName(..)
+  , txtLower
+  , arrayTypeToText
+  , elemCapacity
   , instToText
   ) where
 
 import Data.Char (toLower)
-import Data.Word (Word64)
+import Data.Word
 import Data.Text (Text)
 import Data.Text (pack)
 
@@ -59,7 +50,7 @@ data Header = Header
 
 data ExportEntry = ExportEntry
   { exportSymbol :: Name
-  , exportType   :: Type
+  , exportType   :: [Name]
   } deriving Show
 
 data ImportEntry = ImportEntry
@@ -70,22 +61,6 @@ data ImportEntry = ImportEntry
 
 type Name = Text
 
-data Type
-  = FunctTy FunctionalType
-  | ConstTy ConstantType
-  deriving Show
-
-data FunctionalType = FunctionalType
-  { functionInput  :: [ConstantType]
-  , functionOutput :: [ConstantType]
-  } deriving Show
-
-data ConstantType
-  = Unit
-  | I64
-  | F64
-  deriving (Show, Enum, Bounded)
-
 data Body = Body
   { sectionBss  :: [AllocDirective]
   , sectionData :: [InitDirective]
@@ -93,51 +68,14 @@ data Body = Body
   } deriving Show
 
 data AllocDirective
-  = AllocDirectiveV AllocVar
-  | AllocDirectiveA AllocArray
-  deriving Show
-
-data AllocVar = AllocVar
-  { allocVarType :: ConstantType
-  , allocVarName :: Name
-  } deriving Show
-
-data AllocArray = AllocArray
-  { allocArrType :: ArrayType
-  , allocArrName :: Name
-  , allocArrSize :: Word64
-  } deriving Show
-
-data ArrayType = A8 | A16 | A32 | A64
+  = AllocVar           Name
+  | AllocArr ArrayType Name Word64
   deriving Show
 
 data InitDirective
-  = InitDirectiveV InitDirectiveVar
-  | InitDirectiveA InitDirectiveArray
+  = InitVar           Name Word64
+  | InitArr ArrayType Name [Word64]
   deriving Show
-
-data InitDirectiveVar
-  = InitI InitIntegral
-  | InitF InitFloating
-  deriving Show
-
-data InitIntegral = InitIntegral
-   { initIntVarType  :: ConstantType
-   , initIntVarName  :: Name
-   , initIntVarValue :: Word64
-   } deriving Show
-
-data InitFloating = InitFloating
-   { initFloatVarType  :: ConstantType
-   , initFloatVarName  :: Name
-   , initFloatVarValue :: Double
-   } deriving Show
-
-data InitDirectiveArray = InitDirectiveArray
-  { initArrayType :: ArrayType
-  , initArrayName :: Name
-  , initArrayValue :: [Word64]
-  } deriving Show
 
 data FunctionDef = FunctionDef
   { functionSignature :: FunctionSignature
@@ -146,19 +84,8 @@ data FunctionDef = FunctionDef
 
 data FunctionSignature = FunctionSignature
   { functionName   :: Name
-  , functionType   :: FunctionalType
-  , functionParams :: [Parameter]
+  , functionParams :: [Name]
   } deriving Show
-
-data Parameter = Parameter
-  { parameterName :: Name
-  , parameterType :: ConstantType
-  } deriving Show
-
-data Constant
-  = I64Const Word64
-  | F64Const Double
-  deriving Show
 
 type FunctionBody = [LabeledOperator]
 
@@ -180,12 +107,31 @@ data LabeledOperator = LabeledOperator
 -- of a static memory specification sections (.bss/.data)
 -- So, they might not occupy the same encoding space
 -- for usual instructions such as add, mul etc.
-data StaticMemoryInst
-  = Alloc_i64 -- unary
-  | Alloc_a8  -- binary
-  | Init_i64  -- binary
-  | Init_a8   -- binary
-  deriving Show
+
+txtLower :: Show a => a -> Text
+txtLower x = pack $ map toLower (show x)
+
+data ArrayType
+  = A8
+  | A16
+  | A32
+  | A64
+  deriving (Enum, Bounded)
+
+instance Show ArrayType where
+  show A8  = "8"
+  show A16 = "16"
+  show A32 = "32"
+  show A64 = "64"
+
+arrayTypeToText :: ArrayType -> Text
+arrayTypeToText = txtLower
+
+elemCapacity :: Num a => ArrayType -> a
+elemCapacity A8  = fromIntegral (maxBound :: Word8)
+elemCapacity A16 = fromIntegral (maxBound :: Word16)
+elemCapacity A32 = fromIntegral (maxBound :: Word32)
+elemCapacity A64 = fromIntegral (maxBound :: Word64)
 
 -- It's probably not obligatory to specify all the local declarations
 -- at the top level of a function before any of the instructions, because
@@ -195,8 +141,8 @@ data StaticMemoryInst
 
 data Inst
   = Nop            -- nullary : () -> ()
-  | Push_i64       -- nullary : ∀t.() -> (t)
-  | Cmp_i64        -- nullary : (i64, i64) -> (i64)
+  | Ipush          -- nullary : ∀t.() -> (t)
+  | Icmp           -- nullary : (i64, i64) -> (i64)
   | Jmp_if         -- unary   : (i64) -> ()
   | Jeq            -- unary   : (i64) -> ()
   | Jle            -- unary   : (i64) -> ()
@@ -206,25 +152,28 @@ data Inst
   -- an address where it is supposed to jump at
   | Call           -- binary  : () -> ()
   | Ret            -- nullary : () -> ()
-  | Mul_i64        -- nullary : (i64, i64) -> (i64)
-  | Div_i64        -- nullary : (i64, i64) -> (i64)
-  | Add_i64        -- nullary : (i64, i64) -> (i64)
-  | Sub_i64        -- nullary : (i64, i64) -> (i64)
+  | Imul           -- nullary : (i64, i64) -> (i64)
+  | Idiv           -- nullary : (i64, i64) -> (i64)
+  | Iadd           -- nullary : (i64, i64) -> (i64)
+  | Isub           -- nullary : (i64, i64) -> (i64)
 
 -- Local Scope Instructions
   -- decl - occupies place at the call stack for a local variable
-  | Local_decl_i64 -- unary
+  | Idecl          -- unary
   -- bind - either declares and initializes a variable or binds declared one
-  | Local_bind_i64 -- unary
+  | Ibind          -- unary
   -- read - reads a value of local variable
-  | Local_read_i64 -- unary
+  | Iread          -- unary
 
 -- VM Memory Instructions
-  | Load_i64       -- unary : () -> (i64)
-  | Load_a64_i64   -- unary : (offset:i64) -> (i64)
-  | Store_i64      -- unary : (val:i64) -> ()
-  | Store_a64_i64  -- unary : (val:i64, offset:i64) -> ()
+  | Iload          -- unary : () -> (i64)
+  | Iload_a64      -- unary : (offset:i64) -> (i64)
+  | Istore         -- unary : (val:i64) -> ()
+  | Istore_a64     -- unary : (val:i64, offset:i64) -> ()
   deriving (Show, Enum, Bounded)
+
+instToText :: Inst -> Text
+instToText = txtLower
 
 -- Arity of an instruction represents, not the amount of arguments that
 -- it will take from the operand stack, but the amount of arguments that
@@ -238,20 +187,13 @@ data Operator
   | Binary  Inst Operand Operand -- FunctionalType
   deriving Show
 
+data QualifiedName = QualifiedName
+  { qNameSpace :: [Name]
+  , qName      :: Name
+  } deriving Show
+
 data Operand
-  = OperandNumber Word64
-  | OperandName   Name
+  = OperandNumber    Word64
+  | OperandName      Name
+  | OperandQualified QualifiedName
   deriving Show
-
-instToText :: Inst -> Text
-instToText i =
-  case show i of
-    (c:cs) -> pack $ toLower c : cs
-    _      -> error "unreachable"
-
-typeToText :: ConstantType -> Text
-typeToText Unit = "()"
-typeToText t =
-  case show t of
-    (c:cs) -> pack $ toLower c : cs
-    _      -> error "unreachable"
