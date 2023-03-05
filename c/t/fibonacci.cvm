@@ -1,7 +1,7 @@
 module fibonacci
 
 export
-  ( fibonacci : i64 -> i64
+  ( fibonacci n
   )
 
 section bss
@@ -10,27 +10,27 @@ section data
 
 section text
 
-fibonacci : (n:i64) -> i64
+fibonacci n
 {
-  local_read_i64 n  // n
-  0:i64             // n
-  cmp_i64
-  jeq exit0         // n
-  1:i64             // n 1
-  cmp_i64           // n`cmp`1
-  jeq exit1         //
-  local_read_i64 n  // n
-  1:i64             // n-1
-  sub_i64
-  call 1 fibonacci  // f(n-1)
-  local_read_i64 n  // f(n-1) n
-  2:i64
-  sub_i64           // f(n-1) (n-1)
-  call 1 fibonacci  // f(n-1) f(n-2)
-  add_i64           // f(n-1) + f(n-2)
+  iread n          // n
+  0                // n
+  icmp
+  jeq exit0        // n
+  1                // n 1
+  icmp             // n`cmp`1
+  jeq exit1        //
+  iread n          // n
+  1                // n-1
+  isub
+  call 1 fibonacci // f(n-1)
+  iread n          // f(n-1) n
+  2
+  isub             // f(n-1) (n-1)
+  call 1 fibonacci // f(n-1) f(n-2)
+  iadd             // f(n-1) + f(n-2)
 
 .exit1:
-  1:i64
+  1
 .exit0:
   ret
 }

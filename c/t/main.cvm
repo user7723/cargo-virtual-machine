@@ -3,7 +3,7 @@ module main
 enter main
 
 export
-  ( main : () -> i64
+  ( main ()
   )
 
 import fibonacci as fib
@@ -18,21 +18,21 @@ import factorial as fac
   )
 
 section bss
-  alloc_i64 x
-  alloc_i64 y
+  alloc_v x
+  alloc_v y
 
 section data
-  init_i64 n 5
-  init_i64 c 0
+  init_v n 5
+  init_v c 0
 
 section text
 
-main : () -> i64
+main ()
 {
-  local_read_i64 n   // 5
+  iread n   // 5
   call 1 fib.fibonacci // fib(5)
   call 1 fac.factorial // fac(fib(5))
 
-  load_i64 c           // fac(fib(5)) 0
+  iload c              // fac(fib(5)) 0
   ret
 }
