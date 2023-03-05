@@ -6,13 +6,15 @@ maintainer:         jmp.loop@kittens.org
 
 library
   exposed-modules:
-    Module
+      Module
+    , Parser
   build-depends:
       base
-    , bytestring
+    , text
     , optparse-applicative
     , megaparsec
     , parser-combinators
+    , reinterpret-cast
   hs-source-dirs:
     lib
   ghc-options:
