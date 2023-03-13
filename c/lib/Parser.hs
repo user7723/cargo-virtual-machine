@@ -184,116 +184,147 @@ parseInitArr ty = do
           ++ show (elemCapacity ty :: Word64)
           )
 
+parseSectionText :: ModuleName -> Parser ProgramGraph
+parseSectionText mn = do
+  _   <- keyword "section" >> keyword "text"
+  qns <- P.many $ parseNodeText mn
+  pure $ M.fromList qns
+
 parseNodeText :: ModuleName -> Parser (QLabel, Node)
 parseNodeText mn = do
-  (fd, deps) <- parseFunctionDef mn
-  pure (functionName fd, Node (TextCode fd) deps)
+  fd <- parseFunctionDef mn
+  pure (functionName fd, Node (TextCode fd) (functionDeps fd))
 
-parseFunctionDef :: ModuleName -> Parser (FunctionDef, Set QLabel)
+parseFunctionDef :: ModuleName -> Parser FunctionDef
 parseFunctionDef mn = do
   fn <- lexeme ident <?> "<function name>"
   let ql = QLabel mn Text fn
-  (fb, acc') <- P.between
-      (symbol "{")
-      (symbol "}")
-      (parseFunctionBody (S.empty) mn mempty)
-  pure (FunctionDef ql fb, acc')
+      fd = emptyFunctionDef ql
+  P.between
+    (symbol "{")
+    (symbol "}")
+    (parseFunctionBody fd)
 
-parseFunctionBody
-  :: Set QLabel
-  -> ModuleName
-  -> FunctionBody
-  -> Parser (FunctionBody, Set QLabel)
+parseFunctionBody :: FunctionDef -> Parser FunctionDef
 parseFunctionBody = aux 0
   where
-    aux idx acc mn fb = do
+    aux idx fd = do
       ls <- P.many parseLocalLabel
-      let fb' = foldr (\l m -> insertLabel l idx m) fb ls
-      mia <- P.optional $ parseInst acc mn
+      let fd' = foldr (\l m -> insertLabel l idx m) fd ls
+      mia <- P.optional $ parseInst fd'
       case mia of
-        Nothing           -> pure (fb', acc)
-        Just (inst, acc') -> do
-          let fb'' = insertInst idx inst fb'
-          aux (idx + 1) acc' mn fb
+        Nothing         -> pure fd'
+        Just (op, fd'') -> aux (idx + 1) (insertInst idx op fd'')
 
 parseLocalLabel :: Parser Label
 parseLocalLabel = P.label ".<local label>:" $ lexeme $
   P.between (P.char '.') (P.char ':') ident
 
-parseInst :: Set QLabel -> ModuleName -> Parser (Operator, Set QLabel)
-parseInst acc mn = asum (parseOperator acc mn <$> [minBound .. maxBound])
+parseInst :: FunctionDef -> Parser (Operator, FunctionDef)
+parseInst fd = asum ((P.try . parseOperator fd) <$> [minBound .. maxBound])
 
-parseOperator
- :: Set QLabel
- -> ModuleName
- -> Inst
- -> Parser (Operator, Set QLabel)
-parseOperator acc mn i = case i of
-  Nop       -> nullary i -- nullary : () -> ()
-  Push      -> unary i (pushOperand acc mn) -- nullary : ∀t.() -> (t)
-  Icmp      -> nullary i -- nullary : (i64, i64) -> (i64)
+parseOperator :: FunctionDef -> Inst -> Parser (Operator, FunctionDef)
+parseOperator fd i = case i of
+  Nop       -> nullary fd i                     -- nullary : () -> ()
+  Push      -> parsePush fd i                       -- nullary : ∀t.() -> (t)
+  Icmp      -> nullary fd i                     -- nullary : (i64, i64) -> (i64)
 
-  Jmp_if    -> unary i (controlFlowOperand acc mn)  -- unary   : (i64) -> ()
-  Jeq       -> unary i (controlFlowOperand acc mn)  -- unary   : (i64) -> ()
-  Jle       -> unary i (controlFlowOperand acc mn)  -- unary   : (i64) -> ()
-  Jmp       -> unary i (controlFlowOperand acc mn)  -- unary   : () -> ()
-  Call      -> unary i (controlFlowOperand acc mn)  -- unary   : () -> ()
+  Jmp_if    -> unary   fd i controlFlowOperand  -- unary   : (i64) -> ()
+  Jeq       -> unary   fd i controlFlowOperand  -- unary   : (i64) -> ()
+  Jle       -> unary   fd i controlFlowOperand  -- unary   : (i64) -> ()
+  Jmp       -> unary   fd i controlFlowOperand  -- unary   : () -> ()
+  Call      -> unary   fd i controlFlowOperand  -- unary   : () -> ()
 
-  Ret       -> nullary i -- nullary : () -> ()
-  Imul      -> nullary i -- nullary : (i64, i64) -> (i64)
-  Idiv      -> nullary i -- nullary : (i64, i64) -> (i64)
-  Iadd      -> nullary i -- nullary : (i64, i64) -> (i64)
-  Isub      -> nullary i -- nullary : (i64, i64) -> (i64)
-  Decl      -> nullary i -- nullary
-  Read      -> nullary i -- nullary : (addr:i64) -> (i64)
-  Read_a64  -> nullary i -- nullary : (addr:i64, off:i64) -> (i64)
-  Write     -> nullary i -- nullary : (addr:i64, val:i64) -> ()
-  Write_a64 -> nullary i -- nullary : (addr:i64, off:i64, val:i64) -> ()
+  Ret       -> nullary fd i                     -- nullary : () -> ()
+  Imul      -> nullary fd i                     -- nullary : (i64, i64) -> (i64)
+  Idiv      -> nullary fd i                     -- nullary : (i64, i64) -> (i64)
+  Iadd      -> nullary fd i                     -- nullary : (i64, i64) -> (i64)
+  Isub      -> nullary fd i                     -- nullary : (i64, i64) -> (i64)
+  Decl      -> parseLocalDeclaration fd i       -- nullary
+  Read      -> nullary fd i                     -- nullary : (addr:i64) -> (i64)
+  Read_a64  -> nullary fd i                     -- nullary : (addr:i64, off:i64) -> (i64)
+  Write     -> nullary fd i                     -- nullary : (addr:i64, val:i64) -> ()
+  Write_a64 -> nullary fd i                     -- nullary : (addr:i64, off:i64, val:i64) -> ()
 
-nullary :: Inst -> Parser (Operator, Set QLabel)
-nullary i = ((, S.empty) . Nullary) <$> (i <$ keyword (instToText i))
+parseLocalDeclaration
+  :: FunctionDef
+  -> Inst
+  -> Parser (Operator, FunctionDef)
+parseLocalDeclaration fd i = do
+  inst <- (i <$ keyword (instToText i))
+  var  <- lexeme ident
+  let idx = fromIntegral $ M.size (functionScope fd)
+      fd' = insertLocal var idx fd
+  pure (Nullary inst, fd')
+
+nullary :: FunctionDef -> Inst -> Parser (Operator, FunctionDef)
+nullary fd i
+   =  ((, fd) . Nullary)
+  <$> (i <$ keyword (instToText i))
 
 unary
-  :: Inst
-  -> Parser (Operand, Set QLabel)
-  -> Parser (Operator, Set QLabel)
-unary i p = (\i (o,s) -> (Unary i o, s)) <$> (i <$ keyword (instToText i)) <*> p
+  :: FunctionDef
+  -> Inst
+  -> (FunctionDef -> Parser (Operand, FunctionDef))
+  -> Parser (Operator, FunctionDef)
+unary fd i p = (\i (o,s) -> (Unary i o, s)) <$> (i <$ keyword (instToText i)) <*> p fd
 
-pushOperand :: Set QLabel -> ModuleName -> Parser (Operand, Set QLabel)
-pushOperand acc mn
-    =  (,S.empty) <$> parseOperandNumber
-   <|> parseOperandAddress acc Readable mn
+parsePush :: FunctionDef -> Inst -> Parser (Operator, FunctionDef)
+parsePush fd i = do
+  (op, fd') <- pushOperand fd
+  pure (Unary i op, fd')
+
+pushOperand :: FunctionDef -> Parser (Operand, FunctionDef)
+pushOperand fd
+    =  (,fd) <$> parseOperandNumber
+   <|> parseOperandAddress fd Readable
 
 parseOperandNumber :: Parser Operand
 parseOperandNumber
    =  OperandNumber
   <$> (integralLiteral <|> charInitializer)
 
-parseOperandAddress :: Set QLabel -> Access -> ModuleName -> Parser (Operand, Set QLabel)
-parseOperandAddress acc a mn
-   =  (P.try $ parseSymbolicAddress acc a mn)
-  <|> (,acc) <$> parseNumericAddress a
+parseOperandAddress
+  :: FunctionDef
+  -> Access
+  -> Parser (Operand, FunctionDef)
+parseOperandAddress fd a
+   =  (P.try $ parseLocalVar fd)
+  <|> (P.try $ (,fd) <$> parseNumericAddress a)
+  <|> parseSymbolicAddress fd a
+
+parseLocalVar :: FunctionDef -> Parser (Operand, FunctionDef)
+parseLocalVar fd = do
+  l  <- parseSection LocalScope <* P.char ':'
+  o  <- P.getOffset
+  mi <-  (findLocalIndex  fd <$> lexeme ident)
+     <|> (validLocalIndex fd <$> integralLiteral)
+  case mi of
+    Just idx -> pure (OperandAddress $ Numeric l idx, fd)
+    Nothing  -> do
+      P.setOffset o
+      fail "local variable used before declaration"
 
 parseSymbolicAddress
-  :: Set QLabel
+  :: FunctionDef
   -> Access
-  -> ModuleName
-  -> Parser (Operand, Set QLabel)
-parseSymbolicAddress acc a mn = do
+  -> Parser (Operand, FunctionDef)
+parseSymbolicAddress fd a = do
   mq <- P.optional $ parseQualifier <* P.char '.'
   s  <- parseSection a
   _  <- P.char ':'
   i  <- lexeme ident
   ql <- pure $ QLabel (fromMaybe mn mq) s i
-  pure (addr ql, S.insert ql acc)
+  pure (addr ql, insertDep ql fd)
   where
+    mn = labelQualifier $ functionName fd
     addr = OperandAddress . Symbolic
 
 parseNumericAddress :: Access -> Parser Operand
 parseNumericAddress a = do
-  s  <- parseSection a <|> parseSectionFromNumber a
-  _  <- P.char ':'
-  i  <- integralLiteral
+  s <- parseSection a <|> parseSectionFromNumber a
+  _ <- P.char ':'
+  i <- integralLiteral
   pure $ addr s i
   where
     addr x y = OperandAddress $ Numeric x y
@@ -312,12 +343,13 @@ parseSectionFromNumber a = do
 parseSection :: Access -> Parser Section
 parseSection a =
   case a of
-    Readable ->  P.label "<readable segment mnemonics>"
-              $  (Data  <$ P.char 'd')
-             <|> (Bss   <$ P.char 'b')
-             <|> (Local <$ P.char 'l')
+    LocalScope -> P.label "<local segment mnemonics>"
+                $ Local <$ P.char 'l'
+    Readable   ->  P.label "<readable segment mnemonics>"
+                $  (Data  <$ P.char 'd')
+               <|> (Bss   <$ P.char 'b')
     Executable -> P.label "<executable segment mnemonic>"
                 $ Text <$ P.char 't'
 
-controlFlowOperand :: Set QLabel -> ModuleName -> Parser (Operand, Set QLabel)
-controlFlowOperand acc mn = parseOperandAddress acc Executable mn
+controlFlowOperand :: FunctionDef -> Parser (Operand, FunctionDef)
+controlFlowOperand fd = parseOperandAddress fd Executable

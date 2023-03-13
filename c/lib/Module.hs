@@ -23,8 +23,11 @@ type Name       = Text
 type Label      = Text
 type ModuleName = [Text]
 
-data QLabel = QLabel ModuleName Section Label
-  deriving (Show, Eq, Ord)
+data QLabel = QLabel
+  { labelQualifier :: ModuleName
+  , labelSection   :: Section
+  , labelName      :: Label
+  } deriving (Show, Eq, Ord)
 
 data Node = Node Code (Set QLabel)
   deriving Show
@@ -59,7 +62,7 @@ data Section
 --  | Absolute
   deriving (Show, Eq, Ord, Enum, Bounded)
 
-data Access = Readable | Executable
+data Access = LocalScope | Readable | Executable
   deriving Show
 
 numberToSection :: Access -> Word64 -> Maybe Section
@@ -87,39 +90,51 @@ data InitDirective
 
 data FunctionDef = FunctionDef
   { functionName   :: QLabel
-  , functionBody   :: FunctionBody
-  } deriving Show
-
-data FunctionBody = FunctionBody
-  { functionScope  :: Label  :-> Word64
+  , functionScope  :: Label  :-> Word64
   , functionInsts  :: Word64 :-> Operator
   , functionLabels :: Label  :-> Word64
+  , functionDeps   :: Set QLabel
   } deriving Show
 
-insertLocal :: Label -> Word64 -> FunctionBody -> FunctionBody
-insertLocal l i fb =
-  let s = functionScope fb
-  in fb { functionScope = M.insert l i s }
+findLocalIndex :: FunctionDef -> Label -> Maybe Word64
+findLocalIndex fd l = M.lookup l $ functionScope fd
 
-insertInst :: Word64 -> Operator -> FunctionBody -> FunctionBody
-insertInst i op fb =
-  let ops = functionInsts fb
-  in fb { functionInsts = M.insert i op ops }
+validLocalIndex :: FunctionDef -> Word64 -> Maybe Word64
+validLocalIndex fd idx
+  | idx < varsCnt = Just idx
+  | otherwise     = Nothing
+  where
+    varsCnt = fromIntegral $ M.size (functionScope fd)
 
-insertLabel :: Label -> Word64 -> FunctionBody -> FunctionBody
-insertLabel l i fb =
-  let ls = functionLabels fb
-  in fb { functionLabels = M.insert l i ls }
+emptyFunctionDef :: QLabel -> FunctionDef
+emptyFunctionDef name = FunctionDef
+  { functionName   = name
+  , functionScope  = mempty
+  , functionInsts  = mempty
+  , functionLabels = mempty
+  , functionDeps   = mempty
+  }
 
-instance Semigroup FunctionBody where
-  FunctionBody s i l <> FunctionBody s' i' l'
-    = FunctionBody
-      (s `M.union` s')
-      (i `M.union` i')
-      (l `M.union` l')
+insertDep :: QLabel -> FunctionDef -> FunctionDef
+insertDep ql fd =
+  let deps = functionDeps fd
+  in fd { functionDeps = S.insert ql deps }
 
-instance Monoid FunctionBody where
-  mempty = FunctionBody mempty mempty mempty
+insertLocal :: Label -> Word64 -> FunctionDef -> FunctionDef
+insertLocal l i fd =
+  let s = functionScope fd
+  in fd { functionScope = M.insert l i s }
+
+insertInst :: Word64 -> Operator -> FunctionDef -> FunctionDef
+insertInst i op fd =
+  let ops = functionInsts fd
+  in fd { functionInsts = M.insert i op ops }
+
+insertLabel :: Label -> Word64 -> FunctionDef -> FunctionDef
+insertLabel l i fd =
+  let ls = functionLabels fd
+  in fd { functionLabels = M.insert l i ls }
+
 
 txtLower :: Show a => a -> Text
 txtLower x = pack $ map toLower (show x)
