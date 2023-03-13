@@ -10,86 +10,197 @@ x alloc_v
 y alloc_v
 
 section data
+
 n init_v 5
 c init_v 0
 
 section text
 
-main ()
+main
 {
-  iread n   // 5
-  call 1 fib.fibonacci // fib(5)
-  call 1 fac.factorial // fac(fib(5))
+  d:n
+  read                        // 5
+  call Fancy.Math.t:fibonacci // fib(5)
+  call Fancy.Math.t:factorial // fac(fib(5))
 
-  iload c              // fac(fib(5)) 0
+  d:c
+  read                        // fac(fib(5)) 0
   ret
 }
 
 /*
 Module
-  { moduleHeader =
-      Header
-        { moduleName = "main"
-        , moduleMain = Just "main"
-        , moduleExports =
-            [ ExportEntry { exportSymbol = "main" , exportType = [ "()" ] } ]
-        , moduleImports =
-            [ ImportEntry
-                { importModuleName = "fibonacci"
-                , importModuleAlias = Just "fib"
-                , importSymbols = [ "fibonacci" , "f" , "g" , "h" ]
-                }
-            , ImportEntry
-                { importModuleName = "factorial"
-                , importModuleAlias = Just "fac"
-                , importSymbols = [ "factorial" ]
-                }
-            ]
-        }
-  , moduleBody =
-      Body
-        { sectionBss = [ AllocVar "x" , AllocVar "y" ]
-        , sectionData = [ InitVar "n" 5 , InitVar "c" 0 ]
-        , sectionText =
-            [ FunctionDef
-                { functionSignature =
-                    FunctionSignature
-                      { functionName = "main" , functionParams = [ "()" ] }
-                , functionBody =
-                    [ LabeledOperator
-                        { operatorLabels = []
-                        , labeledOperator = Unary Iread (OperandName "n")
-                        }
-                    , LabeledOperator
-                        { operatorLabels = []
-                        , labeledOperator =
-                            Binary
-                              Call
-                              (OperandNumber 1)
-                              (OperandQualified
-                                 QualifiedName { qNameSpace = [ "fib" ] , qName = "fibonacci" })
-                        }
-                    , LabeledOperator
-                        { operatorLabels = []
-                        , labeledOperator =
-                            Binary
-                              Call
-                              (OperandNumber 1)
-                              (OperandQualified
-                                 QualifiedName { qNameSpace = [ "fac" ] , qName = "factorial" })
-                        }
-                    , LabeledOperator
-                        { operatorLabels = []
-                        , labeledOperator =
-                            Unary
-                              Iload
-                              (OperandQualified QualifiedName { qNameSpace = [] , qName = "c" })
-                        }
-                    , LabeledOperator
-                        { operatorLabels = [] , labeledOperator = Nullary Ret }
-                    ]
-                }
-            ]
-        }
+  { moduleName = [ "Main" ]
+  , entryPoint =
+      Just
+        QLabel
+          { labelQualifier = [ "Main" ]
+          , labelSection = Text
+          , labelName = "main"
+          , labelRelative = Nothing
+          }
+  , programGraph =
+      fromList
+        [ ( QLabel
+              { labelQualifier = [ "Main" ]
+              , labelSection = Data
+              , labelName = "c"
+              , labelRelative = Nothing
+              }
+          , Node (DataCode (InitVar 0)) (fromList [])
+          )
+        , ( QLabel
+              { labelQualifier = [ "Main" ]
+              , labelSection = Data
+              , labelName = "n"
+              , labelRelative = Nothing
+              }
+          , Node (DataCode (InitVar 5)) (fromList [])
+          )
+        , ( QLabel
+              { labelQualifier = [ "Main" ]
+              , labelSection = Bss
+              , labelName = "x"
+              , labelRelative = Nothing
+              }
+          , Node (BssCode AllocVar) (fromList [])
+          )
+        , ( QLabel
+              { labelQualifier = [ "Main" ]
+              , labelSection = Bss
+              , labelName = "y"
+              , labelRelative = Nothing
+              }
+          , Node (BssCode AllocVar) (fromList [])
+          )
+        , ( QLabel
+              { labelQualifier = [ "Main" ]
+              , labelSection = Text
+              , labelName = "main"
+              , labelRelative = Nothing
+              }
+          , Node
+              (TextCode
+                 FunctionDef
+                   { functionName =
+                       QLabel
+                         { labelQualifier = [ "Main" ]
+                         , labelSection = Text
+                         , labelName = "main"
+                         , labelRelative = Nothing
+                         }
+                   , functionScope = fromList []
+                   , functionInsts =
+                       fromList
+                         [ ( 0
+                           , Unary
+                               Push
+                               (OperandAddress
+                                  (Symbolic
+                                     QLabel
+                                       { labelQualifier = [ "Main" ]
+                                       , labelSection = Data
+                                       , labelName = "n"
+                                       , labelRelative = Nothing
+                                       }))
+                           )
+                         , ( 1 , Nullary Read )
+                         , ( 2
+                           , Unary
+                               Call
+                               (OperandAddress
+                                  (Symbolic
+                                     QLabel
+                                       { labelQualifier = [ "Fancy" , "Math" ]
+                                       , labelSection = Text
+                                       , labelName = "fibonacci"
+                                       , labelRelative = Nothing
+                                       }))
+                           )
+                         , ( 3
+                           , Unary
+                               Call
+                               (OperandAddress
+                                  (Symbolic
+                                     QLabel
+                                       { labelQualifier = [ "Fancy" , "Math" ]
+                                       , labelSection = Text
+                                       , labelName = "factorial"
+                                       , labelRelative = Nothing
+                                       }))
+                           )
+                         , ( 4
+                           , Unary
+                               Push
+                               (OperandAddress
+                                  (Symbolic
+                                     QLabel
+                                       { labelQualifier = [ "Main" ]
+                                       , labelSection = Data
+                                       , labelName = "c"
+                                       , labelRelative = Nothing
+                                       }))
+                           )
+                         , ( 5 , Nullary Read )
+                         , ( 6 , Nullary Ret )
+                         ]
+                   , functionLabels = fromList []
+                   , functionDeps =
+                       fromList
+                         [ QLabel
+                             { labelQualifier = [ "Fancy" , "Math" ]
+                             , labelSection = Text
+                             , labelName = "factorial"
+                             , labelRelative = Nothing
+                             }
+                         , QLabel
+                             { labelQualifier = [ "Fancy" , "Math" ]
+                             , labelSection = Text
+                             , labelName = "fibonacci"
+                             , labelRelative = Nothing
+                             }
+                         , QLabel
+                             { labelQualifier = [ "Main" ]
+                             , labelSection = Data
+                             , labelName = "c"
+                             , labelRelative = Nothing
+                             }
+                         , QLabel
+                             { labelQualifier = [ "Main" ]
+                             , labelSection = Data
+                             , labelName = "n"
+                             , labelRelative = Nothing
+                             }
+                         ]
+                   , functionUnresolved = fromList [ 0 , 2 , 3 , 4 ]
+                   })
+              (fromList
+                 [ QLabel
+                     { labelQualifier = [ "Fancy" , "Math" ]
+                     , labelSection = Text
+                     , labelName = "factorial"
+                     , labelRelative = Nothing
+                     }
+                 , QLabel
+                     { labelQualifier = [ "Fancy" , "Math" ]
+                     , labelSection = Text
+                     , labelName = "fibonacci"
+                     , labelRelative = Nothing
+                     }
+                 , QLabel
+                     { labelQualifier = [ "Main" ]
+                     , labelSection = Data
+                     , labelName = "c"
+                     , labelRelative = Nothing
+                     }
+                 , QLabel
+                     { labelQualifier = [ "Main" ]
+                     , labelSection = Data
+                     , labelName = "n"
+                     , labelRelative = Nothing
+                     }
+                 ])
+          )
+        ]
   }
 */
