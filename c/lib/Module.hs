@@ -37,10 +37,10 @@ type ProgramGraph = QLabel :-> Node
 type ModulesGraph = QLabel :-> Node
 
 data Module = Module
-  { entryPoint   :: QLabel
-  , moduleName   :: ModuleName
+  { moduleName   :: ModuleName
+  , entryPoint   :: Maybe QLabel
   , programGraph :: QLabel :-> Node
-  , dependencies :: Set ModuleName
+  -- , dependencies :: Set ModuleName
   } deriving Show
 
 data Code

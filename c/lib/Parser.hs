@@ -103,6 +103,27 @@ parseQLabel = lexeme $ do
   lbl     <- ident
   pure $ QLabel modName secQ lbl Nothing
 
+parseModule :: Parser Module
+parseModule = do
+  _     <- space
+  mname <- parseModuleName
+  entry <- parseModuleMain mname
+  _     <- parseImports
+  progr <- parseProgram mname
+  pure $ Module
+    { moduleName = mname
+    , entryPoint = entry
+    , programGraph = progr
+    -- dependencies = deps
+    }
+
+parseProgram :: ModuleName -> Parser ProgramGraph
+parseProgram mn = do
+  bss <- parseSectionBss mn
+  dat <- parseSectionData mn
+  txt <- parseSectionText mn
+  pure $ bss <> dat <> txt
+
 parseModuleName :: Parser ModuleName
 parseModuleName
   =  lexeme
@@ -110,7 +131,7 @@ parseModuleName
   *> (parseQualifier <?> "<module name>")
 
 parseModuleMain :: ModuleName -> Parser (Maybe QLabel)
-parseModuleMain mn = do
+parseModuleMain mn = lexeme $ do
   mmain <- P.optional (keyword "enter" *> ident)
   pure $ (\main -> QLabel mn Text main Nothing) <$> mmain
 
@@ -126,7 +147,7 @@ parseImports = S.fromList <$> P.many parseImportEntry
 parseSectionBss :: ModuleName -> Parser ProgramGraph
 parseSectionBss m = do
   _   <- keyword "section" >> keyword "bss"
-  qns <- P.many $ parseNodeBss m
+  qns <- P.many $ P.try $ parseNodeBss m
   pure $ M.fromList qns
 
 -- data Node = Node Code (Set QLabel)
@@ -155,7 +176,7 @@ parseAllocArrOfType ty = do
 parseSectionData :: ModuleName -> Parser ProgramGraph
 parseSectionData m = do
   _   <- keyword "section" >> keyword "data"
-  qns <- P.many $ parseNodeData m
+  qns <- P.many $ P.try $ parseNodeData m
   pure $ M.fromList qns
 
 parseNodeData :: ModuleName -> Parser (QLabel, Node)
