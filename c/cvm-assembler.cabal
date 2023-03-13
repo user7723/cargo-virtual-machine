@@ -10,15 +10,21 @@ library
     , Parser
     , Literals
     , Lexer
+    , Dependencies
+    , Error
   build-depends:
       base
     , text
+    , containers
+    , transformers
+    , filepath
+    , directory
     , optparse-applicative
     , megaparsec
     , parser-combinators
     , reinterpret-cast
 
-    , pretty-show -- dbg
+    , pretty-show
   hs-source-dirs:
     lib
   ghc-options:
