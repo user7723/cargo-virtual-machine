@@ -36,6 +36,14 @@ import qualified Data.Map as M
 import Control.Monad.Trans.Except
 import Control.Monad.IO.Class
 
+parseTest :: Show a => FilePath -> Parser a -> IO ()
+parseTest fp p = do
+  input <- T.readFile fp
+  case P.parse p "" input of
+    Left e -> putStr (P.errorBundlePretty e)
+    Right x -> pPrint x
+
+
 parseFromFile :: FilePath -> Parser a -> ExceptT Error IO a
 parseFromFile fp p = do
   inp <- liftIO $ T.readFile fp
@@ -93,7 +101,7 @@ parseQLabel = lexeme $ do
   _       <- P.char '.'
   secQ    <- P.try $ parseSectionQualifier <* P.char ':'
   lbl     <- ident
-  pure $ QLabel modName secQ lbl
+  pure $ QLabel modName secQ lbl Nothing
 
 parseModuleName :: Parser ModuleName
 parseModuleName
@@ -102,10 +110,9 @@ parseModuleName
   *> (parseQualifier <?> "<module name>")
 
 parseModuleMain :: ModuleName -> Parser (Maybe QLabel)
-parseModuleMain mn
-  = lexeme
-  $ P.optional
-  $ QLabel mn Text <$> (keyword "enter" *> ident)
+parseModuleMain mn = do
+  mmain <- P.optional (keyword "enter" *> ident)
+  pure $ (\main -> QLabel mn Text main Nothing) <$> mmain
 
 parseImportEntry :: Parser ModuleName
 parseImportEntry
@@ -127,7 +134,7 @@ parseNodeBss :: ModuleName -> Parser (QLabel, Node)
 parseNodeBss m = do
   i <- lexeme ident
   c <- BssCode <$> parseAllocDirective
-  let ql = QLabel m Bss i
+  let ql = QLabel m Bss i Nothing
   pure (ql, Node c $ S.empty)
 
 parseAllocDirective :: Parser AllocDirective
@@ -155,7 +162,7 @@ parseNodeData :: ModuleName -> Parser (QLabel, Node)
 parseNodeData m = do
   i <- lexeme ident
   c <- DataCode <$> parseInitDirective
-  let ql = QLabel m Data i
+  let ql = QLabel m Data i Nothing
   pure (ql, Node c $ S.empty)
 
 parseInitDirective :: Parser InitDirective
@@ -198,7 +205,7 @@ parseNodeText mn = do
 parseFunctionDef :: ModuleName -> Parser FunctionDef
 parseFunctionDef mn = do
   fn <- lexeme ident <?> "<function name>"
-  let ql = QLabel mn Text fn
+  let ql = QLabel mn Text fn Nothing
       fd = emptyFunctionDef ql
   P.between
     (symbol "{")
@@ -210,11 +217,19 @@ parseFunctionBody = aux 0
   where
     aux idx fd = do
       ls <- P.many parseLocalLabel
-      let fd' = foldr (\l m -> insertLabel l idx m) fd ls
-      mia <- P.optional $ parseInst fd'
+      let fd1 = foldr (\l m -> insertLabel l idx m) fd ls
+      mia <- P.optional $ parseInst fd1
       case mia of
-        Nothing         -> pure fd'
-        Just (op, fd'') -> aux (idx + 1) (insertInst idx op fd'')
+        Nothing        -> pure fd1
+        Just (op, fd2) -> do
+          let fd3 = insertUnresolved idx op $ insertInst idx op fd2
+          aux (idx + 1) fd3
+
+insertUnresolved :: Word64 -> Operator -> FunctionDef -> FunctionDef
+insertUnresolved idx (Unary _ (OperandAddress (Symbolic _))) fd
+  = let unres = S.insert idx $ functionUnresolved fd
+    in fd { functionUnresolved = unres }
+insertUnresolved _ _ fd = fd
 
 parseLocalLabel :: Parser Label
 parseLocalLabel = P.label ".<local label>:" $ lexeme $
@@ -226,14 +241,16 @@ parseInst fd = asum ((P.try . parseOperator fd) <$> [minBound .. maxBound])
 parseOperator :: FunctionDef -> Inst -> Parser (Operator, FunctionDef)
 parseOperator fd i = case i of
   Nop       -> nullary fd i                     -- nullary : () -> ()
-  Push      -> parsePush fd i                       -- nullary : ∀t.() -> (t)
+  Push      -> parsePush fd i                   -- nullary : ∀t.() -> (t)
+  Drop      -> nullary fd i                     -- nullary : ∀t.(t) -> ()
   Icmp      -> nullary fd i                     -- nullary : (i64, i64) -> (i64)
 
   Jmp_if    -> unary   fd i controlFlowOperand  -- unary   : (i64) -> ()
   Jeq       -> unary   fd i controlFlowOperand  -- unary   : (i64) -> ()
   Jle       -> unary   fd i controlFlowOperand  -- unary   : (i64) -> ()
   Jmp       -> unary   fd i controlFlowOperand  -- unary   : () -> ()
-  Call      -> unary   fd i controlFlowOperand  -- unary   : () -> ()
+
+  Call      -> unary   fd i callOperand  -- unary   : () -> ()
 
   Ret       -> nullary fd i                     -- nullary : () -> ()
   Imul      -> nullary fd i                     -- nullary : (i64, i64) -> (i64)
@@ -277,21 +294,25 @@ parsePush fd i = do
 pushOperand :: FunctionDef -> Parser (Operand, FunctionDef)
 pushOperand fd
     =  (,fd) <$> parseOperandNumber
-   <|> parseOperandAddress fd Readable
+   <|> parseOperandAddressReadable fd
 
 parseOperandNumber :: Parser Operand
 parseOperandNumber
    =  OperandNumber
   <$> (integralLiteral <|> charInitializer)
 
-parseOperandAddress
+parseOperandAddressReadable
   :: FunctionDef
-  -> Access
   -> Parser (Operand, FunctionDef)
-parseOperandAddress fd a
+parseOperandAddressReadable fd
    =  (P.try $ parseLocalVar fd)
-  <|> (P.try $ (,fd) <$> parseNumericAddress a)
-  <|> parseSymbolicAddress fd a
+  <|> (P.try $ (,fd) <$> parseNumericAddress Readable)
+  <|> parseSymbolicAddress fd Readable
+
+parseOperandAddressExecutable
+  :: FunctionDef
+  -> Parser (Operand, FunctionDef)
+parseOperandAddressExecutable fd = parseSymbolicAddress fd Executable
 
 parseLocalVar :: FunctionDef -> Parser (Operand, FunctionDef)
 parseLocalVar fd = do
@@ -314,7 +335,7 @@ parseSymbolicAddress fd a = do
   s  <- parseSection a
   _  <- P.char ':'
   i  <- lexeme ident
-  ql <- pure $ QLabel (fromMaybe mn mq) s i
+  ql <- pure $ QLabel (fromMaybe mn mq) s i Nothing
   pure (addr ql, insertDep ql fd)
   where
     mn = labelQualifier $ functionName fd
@@ -351,5 +372,12 @@ parseSection a =
     Executable -> P.label "<executable segment mnemonic>"
                 $ Text <$ P.char 't'
 
+callOperand :: FunctionDef -> Parser (Operand, FunctionDef)
+callOperand fd = parseOperandAddressExecutable fd
+
 controlFlowOperand :: FunctionDef -> Parser (Operand, FunctionDef)
-controlFlowOperand fd = parseOperandAddress fd Executable
+controlFlowOperand fd = do
+  l <- lexeme ident <?> "<local label>"
+  pure (OperandAddress $ Symbolic $ fn { labelRelative = Just l } , fd)
+  where
+    fn = functionName fd

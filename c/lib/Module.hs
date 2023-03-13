@@ -27,6 +27,7 @@ data QLabel = QLabel
   { labelQualifier :: ModuleName
   , labelSection   :: Section
   , labelName      :: Label
+  , labelRelative  :: Maybe Label
   } deriving (Show, Eq, Ord)
 
 data Node = Node Code (Set QLabel)
@@ -89,11 +90,12 @@ data InitDirective
   deriving Show
 
 data FunctionDef = FunctionDef
-  { functionName   :: QLabel
-  , functionScope  :: Label  :-> Word64
-  , functionInsts  :: Word64 :-> Operator
-  , functionLabels :: Label  :-> Word64
-  , functionDeps   :: Set QLabel
+  { functionName       :: QLabel
+  , functionScope      :: Label  :-> Word64
+  , functionInsts      :: Word64 :-> Operator
+  , functionLabels     :: Label  :-> Word64
+  , functionDeps       :: Set QLabel
+  , functionUnresolved :: Set Word64
   } deriving Show
 
 findLocalIndex :: FunctionDef -> Label -> Maybe Word64
@@ -113,6 +115,7 @@ emptyFunctionDef name = FunctionDef
   , functionInsts  = mempty
   , functionLabels = mempty
   , functionDeps   = mempty
+  , functionUnresolved = mempty
   }
 
 insertDep :: QLabel -> FunctionDef -> FunctionDef
@@ -170,6 +173,7 @@ elemCapacity A64 = fromIntegral (maxBound :: Word64)
 data Inst
   = Nop            -- nullary : () -> ()
   | Push           -- nullary : ∀t.() -> (t)
+  | Drop           -- nullary : ∀t.(t) -> (t)
   | Icmp           -- nullary : (i64, i64) -> (i64)
   | Jmp_if         -- unary   : (i64) -> ()
   | Jeq            -- unary   : (i64) -> ()
