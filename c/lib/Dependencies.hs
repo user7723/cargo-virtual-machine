@@ -20,6 +20,7 @@ import qualified Data.Map as M
 
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 
 import System.IO
 import Data.IORef
@@ -43,6 +44,21 @@ findModulePath mn roots = do
     decide f = doesFileExist f >>= \case
         True -> return $ Just f
         _    -> return $ Nothing
+
+collectModulesGraph
+  :: ModuleName     -- target
+  -> Maybe FilePath -- where to search target module '.' is default
+  -> Set FilePath   -- where to search for the dependencies '.' is assumed on empty set
+  -> ExceptT Error IO (ModuleName :-> Module)
+-- -> ExceptT Error IO (ModuleName :-> FilePath)
+collectModulesGraph target mtdir depsRoots = do
+  depsTbl <- genDependencyTable target mtdir depsRoots
+  mapM parseModuleFromFile depsTbl
+
+parseModuleFromFile :: FilePath -> ExceptT Error IO Module
+parseModuleFromFile fp = do
+  sc <- liftIO $ T.readFile fp
+  parseExcept parseModule fp sc
 
 genDependencyTable
   :: ModuleName

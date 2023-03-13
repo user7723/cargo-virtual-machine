@@ -72,6 +72,12 @@ parseImportsFromFile m fp = parseFromFile fp parseImports'
       . T.unpack
       . T.intercalate "."
 
+parseExcept :: Monad m => Parser a -> FilePath -> Stream -> ExceptT Error m a
+parseExcept p f input = except $
+  case P.parse p f input of
+    Left e  -> Left $ ParseError e
+    Right r -> Right r
+
 parseQualifier :: Parser ModuleName
 parseQualifier = ($ []) <$> aux id
   where
