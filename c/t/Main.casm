@@ -1,0 +1,95 @@
+module Main
+
+enter main
+
+import Fancy.Math.Fibonacci
+import Fancy.Math.Factorial
+
+section bss
+x alloc_v
+y alloc_v
+
+section data
+n init_v 5
+c init_v 0
+
+section text
+
+main ()
+{
+  iread n   // 5
+  call 1 fib.fibonacci // fib(5)
+  call 1 fac.factorial // fac(fib(5))
+
+  iload c              // fac(fib(5)) 0
+  ret
+}
+
+/*
+Module
+  { moduleHeader =
+      Header
+        { moduleName = "main"
+        , moduleMain = Just "main"
+        , moduleExports =
+            [ ExportEntry { exportSymbol = "main" , exportType = [ "()" ] } ]
+        , moduleImports =
+            [ ImportEntry
+                { importModuleName = "fibonacci"
+                , importModuleAlias = Just "fib"
+                , importSymbols = [ "fibonacci" , "f" , "g" , "h" ]
+                }
+            , ImportEntry
+                { importModuleName = "factorial"
+                , importModuleAlias = Just "fac"
+                , importSymbols = [ "factorial" ]
+                }
+            ]
+        }
+  , moduleBody =
+      Body
+        { sectionBss = [ AllocVar "x" , AllocVar "y" ]
+        , sectionData = [ InitVar "n" 5 , InitVar "c" 0 ]
+        , sectionText =
+            [ FunctionDef
+                { functionSignature =
+                    FunctionSignature
+                      { functionName = "main" , functionParams = [ "()" ] }
+                , functionBody =
+                    [ LabeledOperator
+                        { operatorLabels = []
+                        , labeledOperator = Unary Iread (OperandName "n")
+                        }
+                    , LabeledOperator
+                        { operatorLabels = []
+                        , labeledOperator =
+                            Binary
+                              Call
+                              (OperandNumber 1)
+                              (OperandQualified
+                                 QualifiedName { qNameSpace = [ "fib" ] , qName = "fibonacci" })
+                        }
+                    , LabeledOperator
+                        { operatorLabels = []
+                        , labeledOperator =
+                            Binary
+                              Call
+                              (OperandNumber 1)
+                              (OperandQualified
+                                 QualifiedName { qNameSpace = [ "fac" ] , qName = "factorial" })
+                        }
+                    , LabeledOperator
+                        { operatorLabels = []
+                        , labeledOperator =
+                            Unary
+                              Iload
+                              (OperandQualified QualifiedName { qNameSpace = [] , qName = "c" })
+                        }
+                    , LabeledOperator
+                        { operatorLabels = [] , labeledOperator = Nullary Ret }
+                    ]
+                }
+            ]
+        }
+  }
+*/

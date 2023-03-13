@@ -1,8 +1,7 @@
-module fibonacci
+module Fancy.Math.Fibonacci
 
-export
-  ( fibonacci n
-  )
+import Fancy.Math.Factorial
+import Main
 
 section bss
 
