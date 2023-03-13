@@ -1,7 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Lexer
-  where
+module Lexer where
 
 import Module
 
@@ -59,9 +58,21 @@ builtins = insts ++ tys
 ident :: Parser Name
 ident = do
   o <- P.getOffset
-  t <- P.tokensToChunk (Proxy :: Proxy Stream) <$> P.some P.alphaNumChar
+  t <- P.tokensToChunk (Proxy :: Proxy Stream)
+    <$> ((:) <$> P.lowerChar <*> P.many P.alphaNumChar)
   if (not $ t `elem` builtins)
   then pure t
   else do
     P.setOffset o
-    fail "<identifier>"
+    fail "<identifier>" -- FIXME: fail -> failure
+
+capIdent :: Parser Name
+capIdent = do
+  o <- P.getOffset
+  t <- P.tokensToChunk (Proxy :: Proxy Stream)
+    <$> ((:) <$> P.upperChar <*> P.many P.letterChar)
+  if (not $ t `elem` builtins)
+  then pure t
+  else do
+    P.setOffset o
+    fail "<identifier>" -- FIXME: fail -> failure
