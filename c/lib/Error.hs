@@ -1,7 +1,7 @@
 module Error where
 
 import Module
-import Lexer (Stream)
+import ParserTypes
 
 import qualified Text.Megaparsec.Error as P
 import Data.Void

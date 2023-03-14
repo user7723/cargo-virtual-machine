@@ -18,6 +18,8 @@ import qualified Data.Set as S
 import Data.Text (Text)
 import qualified Data.Text as T
 
+import ParserTypes
+
 type (:->)      = Map
 type Name       = Text
 type Label      = Text

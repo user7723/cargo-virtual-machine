@@ -3,6 +3,7 @@
 module Lexer where
 
 import Module
+import ParserTypes
 
 import Data.Void
 import Data.Proxy
@@ -12,9 +13,6 @@ import qualified Text.Megaparsec.Char as P
 import qualified Text.Megaparsec.Char.Lexer as L
 
 import Data.Text (Text)
-
-type Stream = Text
-type Parser = P.Parsec Void Stream
 
 lineComment :: Stream
 lineComment = "//"

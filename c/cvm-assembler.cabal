@@ -13,6 +13,7 @@ library
     , Dependencies
     , Error
     , ProgramGraphTraversal
+    , ParserTypes
   build-depends:
       base
     , text

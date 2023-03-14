@@ -5,6 +5,7 @@ module Literals
 
 import Module
 import Lexer
+import ParserTypes
 
 import Data.ReinterpretCast (wordToDouble)
 import Data.Word

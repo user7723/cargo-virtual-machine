@@ -9,6 +9,7 @@ import Module
 import Lexer
 import Literals
 import Error
+import ParserTypes
 
 import Data.Word
 import Data.Void
@@ -35,6 +36,7 @@ import qualified Data.Map as M
 
 import Control.Monad.Trans.Except
 import Control.Monad.IO.Class
+
 
 parseTest :: Show a => FilePath -> Parser a -> IO ()
 parseTest fp p = do
@@ -167,7 +169,7 @@ parseNodeBss m = do
   i <- lexeme ident
   c <- BssCode <$> parseAllocDirective
   let ql = QLabel m Bss i Nothing
-  pure (ql, Node c $ S.empty)
+  pure (ql, Node c S.empty)
 
 parseAllocDirective :: Parser AllocDirective
 parseAllocDirective = parseAllocVar <|> parseAllocArr
@@ -195,7 +197,7 @@ parseNodeData m = do
   i <- lexeme ident
   c <- DataCode <$> parseInitDirective
   let ql = QLabel m Data i Nothing
-  pure (ql, Node c $ S.empty)
+  pure (ql, Node c S.empty)
 
 parseInitDirective :: Parser InitDirective
 parseInitDirective
@@ -244,6 +246,7 @@ parseFunctionDef mn = do
     (symbol "}")
     (parseFunctionBody fd)
 
+-- Attach parser state to each instruction being parsed
 parseFunctionBody :: FunctionDef -> Parser FunctionDef
 parseFunctionBody = aux 0
   where
