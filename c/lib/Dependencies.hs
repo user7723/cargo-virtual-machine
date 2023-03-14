@@ -11,6 +11,7 @@ import Parser
 import System.FilePath
 import System.Directory
 import Data.Maybe
+import Data.Foldable
 
 import Data.Set (Set)
 import qualified Data.Set as S
@@ -45,15 +46,19 @@ findModulePath mn roots = do
         True -> return $ Just f
         _    -> return $ Nothing
 
-collectModulesGraph
+accumulateProgramCode
   :: ModuleName     -- target
   -> Maybe FilePath -- where to search target module '.' is default
   -> Set FilePath   -- where to search for the dependencies '.' is assumed on empty set
-  -> ExceptT Error IO (ModuleName :-> Module)
+  -> ExceptT Error IO ProgramGraph
 -- -> ExceptT Error IO (ModuleName :-> FilePath)
-collectModulesGraph target mtdir depsRoots = do
+accumulateProgramCode target mtdir depsRoots = do
   depsTbl <- genDependencyTable target mtdir depsRoots
-  mapM parseModuleFromFile depsTbl
+  fmap (fold . M.elems) $ mapM
+    ( (programGraph <$>)
+    . (parseModuleFromFile :: FilePath -> ExceptT Error IO Module)
+    )
+    (depsTbl :: ModuleName :-> FilePath)
 
 parseModuleFromFile :: FilePath -> ExceptT Error IO Module
 parseModuleFromFile fp = do
@@ -72,7 +77,6 @@ genDependencyTable mn mtdir roots = do
   where
     aux r dirs m = do
       path <- findModulePath m dirs
-      liftIO $ print path
       imps <- parseImportsFromFile m path
       excl <- liftIO $ readIORef r
       _    <- liftIO $ modifyIORef r (S.union imps)
