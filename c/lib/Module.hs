@@ -25,7 +25,7 @@ type ModuleName = [Text]
 
 data QLabel = QLabel
   { labelQualifier :: ModuleName
-  , labelSection   :: Section
+  , labelSegType   :: SegType
   , labelName      :: Label
   , labelRelative  :: Maybe Label
   } deriving (Show, Eq, Ord)
@@ -55,7 +55,7 @@ data Code
 -- manual checks. Maybe it's simpler to generate c-header file
 -- after each assembler recompilation instead of reading it in
 -- using FFI tools
-data Section
+data SegType
   = Data
   | Bss
   | Text
@@ -66,13 +66,13 @@ data Section
 data Access = LocalScope | Readable | Executable
   deriving Show
 
-numberToSection :: Access -> Word64 -> Maybe Section
-numberToSection a n
+numberToSegType :: Access -> Word64 -> Maybe SegType
+numberToSegType a n
   | check n   = Just $ toEnum $ fromIntegral n
   | otherwise = Nothing
   where
-    minS = fromIntegral $ fromEnum (minBound :: Section)
-    maxS = fromIntegral $ fromEnum (maxBound :: Section)
+    minS = fromIntegral $ fromEnum (minBound :: SegType)
+    maxS = fromIntegral $ fromEnum (maxBound :: SegType)
     check x = all ($ x) [(>= minS), (<= maxS), accessMatch]
     accessMatch = case a of
       Readable   -> (/= textIdx)
@@ -221,7 +221,7 @@ data Operand
 
 data Address
   = Symbolic QLabel
-  | Numeric  Section Word64
+  | Numeric  SegType Word64
   deriving Show
 
 {-

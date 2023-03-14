@@ -91,8 +91,8 @@ parseQualifier = ($ []) <$> aux id
         Just _  -> P.char '.' >> aux acc'
         Nothing -> pure acc'
 
-parseSectionQualifier :: Parser Section
-parseSectionQualifier
+parseSegTypeQualifier :: Parser SegType
+parseSegTypeQualifier
    =  (Data     <$ P.char 'd')
   <|> (Bss      <$ P.char 'b')
   <|> (Text     <$ P.char 't')
@@ -105,7 +105,7 @@ parseQLabel :: Parser QLabel
 parseQLabel = lexeme $ do
   modName <- parseQualifier
   _       <- P.char '.'
-  secQ    <- P.try $ parseSectionQualifier <* P.char ':'
+  secQ    <- P.try $ parseSegTypeQualifier <* P.char ':'
   lbl     <- ident
   pure $ QLabel modName secQ lbl Nothing
 
@@ -125,9 +125,9 @@ parseModule = do
 
 parseProgram :: ModuleName -> Parser ProgramGraph
 parseProgram mn = do
-  bss <- parseSectionBss mn
-  dat <- parseSectionData mn
-  txt <- parseSectionText mn
+  bss <- parseSegTypeBss mn
+  dat <- parseSegTypeData mn
+  txt <- parseSegTypeText mn
   pure $ bss <> dat <> txt
 
 parseModuleName :: Parser ModuleName
@@ -150,8 +150,8 @@ parseImportEntry
 parseImports :: Parser (Set ModuleName)
 parseImports = S.fromList <$> P.many parseImportEntry
 
-parseSectionBss :: ModuleName -> Parser ProgramGraph
-parseSectionBss m = do
+parseSegTypeBss :: ModuleName -> Parser ProgramGraph
+parseSegTypeBss m = do
   _   <- keyword "section" >> keyword "bss"
   qns <- P.many $ P.try $ parseNodeBss m
   pure $ M.fromList qns
@@ -179,8 +179,8 @@ parseAllocArrOfType ty = do
   size <- integralLiteral <?> "<allocation size>"
   return $ AllocArr ty size
 
-parseSectionData :: ModuleName -> Parser ProgramGraph
-parseSectionData m = do
+parseSegTypeData :: ModuleName -> Parser ProgramGraph
+parseSegTypeData m = do
   _   <- keyword "section" >> keyword "data"
   qns <- P.many $ P.try $ parseNodeData m
   pure $ M.fromList qns
@@ -218,8 +218,8 @@ parseInitArr ty = do
           ++ show (elemCapacity ty :: Word64)
           )
 
-parseSectionText :: ModuleName -> Parser ProgramGraph
-parseSectionText mn = do
+parseSegTypeText :: ModuleName -> Parser ProgramGraph
+parseSegTypeText mn = do
   _   <- keyword "section" >> keyword "text"
   qns <- P.many $ parseNodeText mn
   pure $ M.fromList qns
@@ -343,7 +343,7 @@ parseOperandAddressExecutable fd = parseSymbolicAddress fd Executable
 
 parseLocalVar :: FunctionDef -> Parser (Operand, FunctionDef)
 parseLocalVar fd = do
-  l  <- parseSection LocalScope <* P.char ':'
+  l  <- parseSegType LocalScope <* P.char ':'
   o  <- P.getOffset
   mi <-  (findLocalIndex  fd <$> lexeme ident)
      <|> (validLocalIndex fd <$> integralLiteral)
@@ -359,7 +359,7 @@ parseSymbolicAddress
   -> Parser (Operand, FunctionDef)
 parseSymbolicAddress fd a = do
   mq <- P.optional $ parseQualifier <* P.char '.'
-  s  <- parseSection a
+  s  <- parseSegType a
   _  <- P.char ':'
   i  <- lexeme ident
   ql <- pure $ QLabel (fromMaybe mn mq) s i Nothing
@@ -370,17 +370,17 @@ parseSymbolicAddress fd a = do
 
 parseNumericAddress :: Access -> Parser Operand
 parseNumericAddress a = do
-  s <- parseSection a <|> parseSectionFromNumber a
+  s <- parseSegType a <|> parseSegTypeFromNumber a
   _ <- P.char ':'
   i <- integralLiteral
   pure $ addr s i
   where
     addr x y = OperandAddress $ Numeric x y
 
-parseSectionFromNumber :: Access -> Parser Section
-parseSectionFromNumber a = do
+parseSegTypeFromNumber :: Access -> Parser SegType
+parseSegTypeFromNumber a = do
   i <- integralLiteral <?> "<section index>"
-  case numberToSection a i of
+  case numberToSegType a i of
     Just s  -> pure s
     Nothing -> fail
              $ "not an index of existing "
@@ -388,8 +388,8 @@ parseSectionFromNumber a = do
             ++ " section: "
             ++ show i
 
-parseSection :: Access -> Parser Section
-parseSection a =
+parseSegType :: Access -> Parser SegType
+parseSegType a =
   case a of
     LocalScope -> P.label "<local segment mnemonics>"
                 $ Local <$ P.char 'l'
