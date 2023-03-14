@@ -12,6 +12,7 @@ library
     , Lexer
     , Dependencies
     , Error
+    , ProgramGraphTraversal
   build-depends:
       base
     , text

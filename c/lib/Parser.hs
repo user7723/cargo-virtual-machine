@@ -51,6 +51,11 @@ parseFromFile fp p = do
     Left e -> throwE $ ParseError e
     Right r -> return r
 
+parseMainFromFile :: FilePath -> ExceptT Error IO (Maybe QLabel)
+parseMainFromFile fp = parseFromFile fp parseMain'
+  where
+    parseMain' = parseModuleName >>= parseModuleMain
+
 parseImportsFromFile :: ModuleName -> FilePath -> ExceptT Error IO (Set ModuleName)
 parseImportsFromFile m fp = parseFromFile fp parseImports'
   where
