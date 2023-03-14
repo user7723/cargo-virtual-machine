@@ -20,9 +20,9 @@ main
 {
   d:n
   read                        // 5
-  call Fancy.Math.t:fibonacci // fib(5)
-  call Fancy.Math.t:factorial // fac(fib(5))
-
+  call Fancy.Math.Fibonacci.t:fibonacci // fib(5)
+  call Fancy.Math.Factorial.t:factorial // fac(fib(5))
+  call Fancy.Math.Factorial.t:youCantTouchThis
   d:c
   read                        // fac(fib(5)) 0
   ret

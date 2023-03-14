@@ -44,6 +44,16 @@ factorial
   ret
 }
 
+youCantTouchThis
+{
+  nop
+  nop
+  nop
+  5
+  call t:factorial
+  ret
+}
+
 /*
 
 Module
