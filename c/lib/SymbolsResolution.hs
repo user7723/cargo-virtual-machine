@@ -18,16 +18,16 @@ data ProgramText = ProgramText
   { programTextSeg :: [Operator]
   , programDataSeg :: [InitDirective]
   , programBssSeg  :: [AllocDirective]
-  }
+  } deriving Show
 
 flatData :: SegData -> [InitDirective]
-flatData (SegData m _) = M.elems $ M.map snd m
+flatData (SegData m _) = M.elems $ M.fromList $ M.elems m
 
 flatBss :: SegBss -> [AllocDirective]
-flatBss (SegBss m _) = M.elems $ M.map snd m
+flatBss (SegBss m _) = M.elems $ M.fromList $ M.elems m
 
 functionDefs :: SegText -> [FunctionDef]
-functionDefs (SegText m _) = M.elems $ M.map snd m
+functionDefs (SegText m _) = M.elems $ M.fromList $ M.elems m
 
 resolveSymbolicRefs :: Segs -> ProgramText
 resolveSymbolicRefs s@Segs{..} =
@@ -52,11 +52,16 @@ resolveSROperator
     (OperandAddress
       (Symbolic
         (ql@QLabel{..}))))
-  = case labelSegType of
-    Data  -> mkOp inst Data (unsafeLookup ql sD)
-    Bss   -> mkOp inst Bss  (unsafeLookup ql sB)
-    Text  -> mkOp inst Text (unsafeLookup ql sT)
-    Local -> error "you fucked up with locals"
+  = case labelRelative of
+      Just lbl ->
+        let (base, FunctionDef{..}) = sT M.! (ql { labelRelative = Nothing })
+            offset = functionLabels M.! lbl
+        in Unary inst (OperandAddress (Numeric Text (base + offset)))
+      Nothing -> case labelSegType of
+        Data  -> mkOp inst Data (unsafeLookup ql sD)
+        Bss   -> mkOp inst Bss  (unsafeLookup ql sB)
+        Text  -> mkOp inst Text (unsafeLookup ql sT)
+        Local -> error "you fucked up with locals"
   where
     unsafeLookup q s = maybe err fst (M.lookup q s)
     mkOp i s a = Unary i (OperandAddress (Numeric s a))
