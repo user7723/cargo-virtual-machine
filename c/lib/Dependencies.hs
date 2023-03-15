@@ -90,7 +90,6 @@ readProgramCode t tfp depsDirs = do
     Nothing    -> throwE $ NoEntryPointWasGiven t tFile
     Just start -> do
       accPG   <- accumulateProgramCode depsTbl
-      liftIO $ pPrint accPG
       extractDependencyCode start accPG
 
 
