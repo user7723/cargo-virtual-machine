@@ -15,6 +15,7 @@ library
     , ProgramGraphTraversal
     , ParserTypes
     , SymbolsResolution
+    , Translation
   build-depends:
       base
     , text
