@@ -106,9 +106,11 @@ programLookup ql pg = except $
     Just n  -> pure n
     Nothing -> Left $ UndefinedReference ql
 
+type EntryPoint = QLabel
+
 runGraph
   :: forall s
-   . QLabel
+   . EntryPoint
   -> ProgramGraph
   -> ExceptT Error (ST s) Segs
 runGraph start pg = do
