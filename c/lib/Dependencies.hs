@@ -34,91 +34,69 @@ import Control.Monad.IO.Class
 
 import Control.Monad.ST
 
+import Control.Monad
+
 sourceCodeSuffix :: FilePath
 sourceCodeSuffix = "casm"
 
-findModulePath :: ModuleName -> Set FilePath -> ExceptT Error IO FilePath
-findModulePath mn roots = do
-  let dirs = T.unpack $ T.intercalate "/" mn
-      possible = map (</> (dirs <.> sourceCodeSuffix))
-               $ S.toList roots
-
-  liftIO (catMaybes <$> mapM decide possible) >>= \case
-    (path:_) -> return path
-    _        -> throwE $ ModuleWasNotFound mn roots
-  where
-    -- FIXME: IOExeption -> EitherT Error
-    decide f = doesFileExist f >>= \case
-        True -> return $ Just f
-        _    -> return $ Nothing
-
-accumulateProgramCode
-  :: ModuleName :-> FilePath
-  -> ExceptT Error IO ProgramGraph
-accumulateProgramCode depsTbl = do
-  fmap (fold . M.elems) $ mapM
-    ( (programGraph <$>)
-    . parseModuleFromFile
-    )
-    depsTbl
+type Directory        = FilePath
+type SourceCodePath   = FilePath
+type TargetFilePath   = FilePath
+type TargetModuleName = ModuleName
+type CompleteProgramGraph = ProgramGraph
 
 extractDependencyCode
-  :: QLabel                -- Main
-  -> ProgramGraph          -- complete program graph
-  -> ExceptT Error IO Segs -- nodes of the program that are reachable from Main
-extractDependencyCode start pg
-  = mapExceptT stToIO $ runGraph start pg
-
-
-readProgramCode
-  :: ModuleName
-  -> Maybe FilePath -- where to search target module '.' is default
-  -> Set FilePath   -- where to search for the dependencies '.' is assumed on empty set
+  :: TargetModuleName
+  -> Set Directory
   -> ExceptT Error IO Segs
-readProgramCode t tfp depsDirs = do
-  depsTbl <- genDependencyTable t tfp depsDirs
-  tFile   <- maybe
-    ( throwE
-    $ ModuleWasNotFound
-      t
-      (S.insert (fromMaybe "." tfp) depsDirs)
-    )
-    pure
-    (M.lookup t depsTbl)
-  mstart  <- parseMainFromFile tFile
-  case mstart of
-    Nothing    -> throwE $ NoEntryPointWasGiven t tFile
-    Just start -> do
-      accPG   <- accumulateProgramCode depsTbl
-      extractDependencyCode start accPG
+extractDependencyCode tmn dirs = do
+  (tpath, deps) <- fetchSourceCodePaths tmn dirs
+  completePG    <- accumulateProgramCode deps
+  parseMainFromFile tpath >>= \case
+    Just start -> mapExceptT stToIO $ runGraph start completePG
+    Nothing    -> throwE $ NoEntryPointWasGiven tmn tpath
 
-
-parseModuleFromFile :: FilePath -> ExceptT Error IO Module
-parseModuleFromFile fp = do
-  -- FIXME: IOExeption -> EitherT Error
-  sc <- liftIO $ T.readFile fp
-  parseExcept parseModule fp sc
-
-genDependencyTable
-  :: ModuleName
-  -> Maybe FilePath -- where to search target module '.' is default
-  -> Set FilePath   -- where to search for the dependencies '.' is assumed on empty set
-  -> ExceptT Error IO (ModuleName :-> FilePath)
-genDependencyTable mn mtdir roots = do
+fetchSourceCodePaths
+  :: TargetModuleName
+  -> Set Directory
+  -> ExceptT Error IO (TargetFilePath, Set SourceCodePath)
+fetchSourceCodePaths mn roots = do
   rex  <- liftIO $ newIORef (S.singleton mn)
-  tdir <- liftIO $ maybe getCurrentDirectory pure mtdir
-  aux rex (S.insert tdir roots) mn
+  p    <- findModulePath mn roots
+  ps   <- aux rex roots mn
+  pure (p, ps)
   where
     aux r dirs m = do
       path <- findModulePath m dirs
       imps <- parseImportsFromFile m path
-
-      -- FIXME: IOExeption -> EitherT Error
       excl <- liftIO $ readIORef r
-      -- FIXME: IOExeption -> EitherT Error
       _    <- liftIO $ modifyIORef r (S.union imps)
       let imps' = imps S.\\ excl
       S.foldr
-        (\dep acc -> M.union <$> aux r dirs dep <*> acc)
-        (pure $ M.singleton m path)
+        (\dep acc -> S.union <$> aux r dirs dep <*> acc)
+        (pure $ S.singleton path)
         imps'
+
+findModulePath
+  :: ModuleName
+  -> Set Directory
+  -> ExceptT Error IO SourceCodePath
+findModulePath mn roots = do
+  liftIO (filterM doesFileExist possibleModulePaths) >>= \case
+    (path:_) -> return path
+    _        -> throwE $ ModuleWasNotFound mn roots
+  where
+    possibleModulePaths = appendRelativePath <$> S.toList roots
+    appendRelativePath = (</> (moduleNameAsPath <.> sourceCodeSuffix))
+    moduleNameAsPath = joinPath $ T.unpack <$> mn
+
+accumulateProgramCode
+  :: Set SourceCodePath
+  -> ExceptT Error IO CompleteProgramGraph
+accumulateProgramCode
+  = (fold <$>)
+  . mapM getProgramGraph
+  . S.toList
+  where
+    getProgramGraph :: SourceCodePath -> ExceptT Error IO ProgramGraph
+    getProgramGraph fp = programGraph <$> parseFromFile fp parseModule

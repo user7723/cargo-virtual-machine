@@ -37,6 +37,12 @@ import qualified Data.Map as M
 import Control.Monad.Trans.Except
 import Control.Monad.IO.Class
 
+parseFromFile :: FilePath -> Parser a -> ExceptT Error IO a
+parseFromFile fp p = do
+  inp <- liftIO $ T.readFile fp
+  case P.parse p fp inp of
+    Left e -> throwE $ ParseError e
+    Right r -> return r
 
 parseTest :: Show a => FilePath -> Parser a -> IO ()
 parseTest fp p = do
@@ -44,14 +50,6 @@ parseTest fp p = do
   case P.parse p "" input of
     Left e -> putStr (P.errorBundlePretty e)
     Right x -> pPrint x
-
-
-parseFromFile :: FilePath -> Parser a -> ExceptT Error IO a
-parseFromFile fp p = do
-  inp <- liftIO $ T.readFile fp
-  case P.parse p fp inp of
-    Left e -> throwE $ ParseError e
-    Right r -> return r
 
 parseMainFromFile :: FilePath -> ExceptT Error IO (Maybe QLabel)
 parseMainFromFile fp = parseFromFile fp parseMain'
@@ -73,17 +71,12 @@ parseImportsFromFile m fp = parseFromFile fp parseImports'
           (S.singleton $ tokenModuleName m)
       else parseModuleMain m' >> parseImports
 
+    -- FIXME: absolutely horrible
     tokenModuleName
       = P.Tokens
       . NE.fromList
       . T.unpack
       . T.intercalate "."
-
-parseExcept :: Monad m => Parser a -> FilePath -> Stream -> ExceptT Error m a
-parseExcept p f input = except $
-  case P.parse p f input of
-    Left e  -> Left $ ParseError e
-    Right r -> Right r
 
 parseQualifier :: Parser ModuleName
 parseQualifier = ($ []) <$> aux id
