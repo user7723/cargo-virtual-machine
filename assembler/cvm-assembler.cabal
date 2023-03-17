@@ -1,0 +1,102 @@
+cabal-version:      2.4
+name:               cvm-assembler
+version:            0.1.0.0
+author:             user7723
+maintainer:         jmp.loop@kittens.org
+
+-- Assembler
+-- Assembler.IR...
+-- Assembler.Parser...
+-- Assembler.Resolver.ModuleDeps
+-- Assembler.Resolver.ProgramCodeDeps
+-- Assembler.Resolver.SymbolicRefs
+-- Assembler.Translator.BinFormat ?
+-- Assembler.Translator.Serializer ?
+-- Assembler.Error
+
+library
+  exposed-modules:
+      Assembler.IR.Aliases
+    , Assembler.IR.FunctionDef
+    , Assembler.IR.Module
+    , Assembler.IR.Operator
+    , Assembler.IR.ProgramGraph
+    , Assembler.IR.StaticMemory
+    , Assembler.IR.InstructionSet
+    , Assembler.IR.QLabel
+    , Assembler.IR.Text
+
+    , Assembler.Parser.Aliases
+    , Assembler.Parser.FunctionDef
+    , Assembler.Parser.IO
+    , Assembler.Parser.Lexer
+    , Assembler.Parser.Literals
+    , Assembler.Parser.Module
+    , Assembler.Parser.Operator
+    , Assembler.Parser.ProgramGraph
+    , Assembler.Parser.QLabel
+    , Assembler.Parser.StaticMemory
+
+    , Assembler.Resolver.Aliases
+    , Assembler.Resolver.ModuleDeps
+    , Assembler.Resolver.ProgramCodeDeps
+    , Assembler.Resolver.SymbolicRefs
+
+    , Assembler.Error
+
+    , Assembler.Translator
+
+  build-depends:
+      base
+    , text
+    , containers
+    , transformers
+    , filepath
+    , directory
+    , optparse-applicative
+    , megaparsec
+    , parser-combinators
+    , reinterpret-cast
+
+    , pretty-show
+  hs-source-dirs:
+    lib
+  ghc-options:
+    -Wall
+  default-language: Haskell2010
+  default-extensions:
+      OverloadedStrings
+    , TypeOperators
+    , LambdaCase
+    , TupleSections
+    , ExplicitForAll
+    , RecordWildCards
+
+executable cvma
+  main-is:
+    Main.hs
+  hs-source-dirs:
+    app
+  build-depends:
+      base
+    , cvm-assembler
+    , bytestring
+  ghc-options:
+    -Wall
+  default-language: Haskell2010
+
+-- test-suite tests
+--   type:
+--     exitcode-stdio-1.0
+--   hs-source-dirs:
+--     tests
+--   default-language:
+--     Haskell2010
+--   main-is: Main.hs
+--   ghc-options:
+--     -Wall
+--     -O2
+--   build-depends:
+--       base
+--     , QuickCheck
+--     , cvm-compiler
