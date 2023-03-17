@@ -38,14 +38,14 @@ parseAllocDirective :: Parser AllocDirective
 parseAllocDirective = parseAllocVar <|> parseAllocArr
 
 parseAllocVar :: Parser AllocDirective
-parseAllocVar = AllocVar <$ keyword "alloc_v"
+parseAllocVar = AllocVar <$ keyword allocV
 
 parseAllocArr :: Parser AllocDirective
 parseAllocArr = asum $ parseAllocArrOfType <$> [minBound .. maxBound]
 
 parseAllocArrOfType :: ArrayType -> Parser AllocDirective
 parseAllocArrOfType ty = do
-  _    <- keyword $ "alloc_a" <> showTextLower ty
+  _    <- keyword $ allocArrayToText ty
   size <- integralLiteral <?> "<allocation size>"
   return $ AllocArr ty size
 
@@ -69,13 +69,13 @@ parseInitDirective
 
 parseInitVar :: Parser InitDirective
 parseInitVar = do
-  _    <- keyword "init_v"
+  _    <- keyword initV
   val  <- integralLiteral <|> charInitializer
   return $ InitVar val
 
 parseInitArr :: ArrayType -> Parser InitDirective
 parseInitArr ty = do
-  _  <- keyword $ "init_a" <> showTextLower ty
+  _  <- keyword $ initArrayToText ty
   is <- stringArrayInitializer <|> integerArrayInitializer
   mapM_ validate is
   pure $ InitArr ty is

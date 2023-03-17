@@ -4,16 +4,6 @@ version:            0.1.0.0
 author:             user7723
 maintainer:         jmp.loop@kittens.org
 
--- Assembler
--- Assembler.IR...
--- Assembler.Parser...
--- Assembler.Resolver.ModuleDeps
--- Assembler.Resolver.ProgramCodeDeps
--- Assembler.Resolver.SymbolicRefs
--- Assembler.Translator.BinFormat ?
--- Assembler.Translator.Serializer ?
--- Assembler.Error
-
 library
   exposed-modules:
       Assembler.IR.Aliases
@@ -25,6 +15,7 @@ library
     , Assembler.IR.InstructionSet
     , Assembler.IR.QLabel
     , Assembler.IR.Text
+    , Assembler.IR.RawFormat
 
     , Assembler.Parser.Aliases
     , Assembler.Parser.FunctionDef

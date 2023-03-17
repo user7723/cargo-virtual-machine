@@ -7,17 +7,13 @@ import Assembler.IR.Operator
 import Assembler.IR.StaticMemory
 import Assembler.IR.FunctionDef
 import Assembler.IR.QLabel
+import Assembler.IR.RawFormat
 
 import Data.Word
+import Data.List
 
 import qualified Data.Set as S
 import qualified Data.Map as M
-
-data ProgramText = ProgramText
-  { programTextSeg :: [Operator]
-  , programDataSeg :: [InitDirective]
-  , programBssSeg  :: [AllocDirective]
-  } deriving Show
 
 flatData :: SegData -> [InitDirective]
 flatData (SegData m _) = M.elems $ M.fromList $ M.elems m
@@ -28,13 +24,17 @@ flatBss (SegBss m _) = M.elems $ M.fromList $ M.elems m
 functionDefs :: SegText -> [FunctionDef]
 functionDefs (SegText m _) = M.elems $ M.fromList $ M.elems m
 
+functionAddrs :: SegText -> [(QLabel, Word64)]
+functionAddrs (SegText m _) = sortOn snd $ map (fmap fst) $ M.toList m
+
 resolveSymbolicRefs :: Segs -> ProgramText
 resolveSymbolicRefs s@Segs{..} =
   let
     txt = concatMap (resolveSRFunctionDef s) (functionDefs sectionText)
     dat = flatData sectionData
     bss = flatBss sectionBss
-  in ProgramText txt dat bss
+    txtSymbols = functionAddrs sectionText
+  in ProgramText txt dat bss txtSymbols
 
 resolveSRFunctionDef :: Segs -> FunctionDef -> [Operator]
 resolveSRFunctionDef segs FunctionDef{..} =
