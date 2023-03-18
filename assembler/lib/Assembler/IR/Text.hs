@@ -4,8 +4,7 @@ import Assembler.IR.Operator
 import Assembler.IR.StaticMemory
 import Assembler.IR.InstructionSet
 import Assembler.IR.QLabel
-
-import Assembler.IR.RawFormat
+import Assembler.IR.ProgramText
 
 import Data.Word
 import Data.Text (Text)

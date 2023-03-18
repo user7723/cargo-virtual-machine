@@ -1,5 +1,8 @@
 module Assembler.IR.InstructionSet where
 
+import Data.Serialize
+import Data.Word
+
 data Inst
   = Nop            -- nullary : () -> ()
   | Push           -- nullary : ∀t.() -> (t)
@@ -29,3 +32,16 @@ data Inst
   | Write         -- nullary : (addr:i64, val:i64) -> ()
   | Write_a64     -- nullary : (addr:i64, off:i64, val:i64) -> ()
   deriving (Show, Enum, Bounded)
+
+instToWord8 :: Inst -> Word8
+instToWord8 = fromIntegral . fromEnum
+
+instFromWord8 :: Word8 -> Get Inst
+instFromWord8 w
+  |  w >= instToWord8 minBound
+  && w <= instToWord8 maxBound = return $ toEnum $ fromIntegral w
+  | otherwise = fail $ "undefined opcode: " ++ show w
+
+instance Serialize Inst where
+  put = putWord8 . instToWord8
+  get = getWord8 >>= instFromWord8

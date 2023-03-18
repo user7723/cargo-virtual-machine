@@ -7,7 +7,7 @@ import Assembler.IR.Operator
 import Assembler.IR.StaticMemory
 import Assembler.IR.FunctionDef
 import Assembler.IR.QLabel
-import Assembler.IR.RawFormat
+import Assembler.IR.ProgramText
 
 import Data.Word
 import Data.List
@@ -27,14 +27,22 @@ functionDefs (SegText m _) = M.elems $ M.fromList $ M.elems m
 functionAddrs :: SegText -> [(QLabel, Word64)]
 functionAddrs (SegText m _) = sortOn snd $ map (fmap fst) $ M.toList m
 
-resolveSymbolicRefs :: Segs -> ProgramText
-resolveSymbolicRefs s@Segs{..} =
+resolveSymbolicRefs :: EntryPoint -> Segs -> ProgramText
+resolveSymbolicRefs start s@Segs{..} =
   let
     txt = concatMap (resolveSRFunctionDef s) (functionDefs sectionText)
     dat = flatData sectionData
     bss = flatBss sectionBss
+    sta = let SegText m _ = sectionText in fst $ m M.! start
     txtSymbols = functionAddrs sectionText
-  in ProgramText txt dat bss txtSymbols
+  in ProgramText
+       { programMagic   = Magic
+       , programStart   = sta
+       , programTextSeg = txt
+       , programDataSeg = dat
+       , programBssSeg  = bss
+       , textSegSymbols = txtSymbols
+       }
 
 resolveSRFunctionDef :: Segs -> FunctionDef -> [Operator]
 resolveSRFunctionDef segs FunctionDef{..} =

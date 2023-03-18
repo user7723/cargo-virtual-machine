@@ -16,4 +16,3 @@ data Code
   | DataCode InitDirective
   | TextCode FunctionDef
   deriving Show
-

@@ -134,10 +134,11 @@ runGraph start pg = do
 extractDependencyCode
   :: TargetModuleName
   -> Set Directory
-  -> ExceptT Error IO Segs
+  -> ExceptT Error IO (EntryPoint, Segs)
 extractDependencyCode tmn dirs = do
   (tpath, deps) <- fetchSourceCodePaths tmn dirs
   completePG    <- accumulateProgramCode deps
   parseMainFromFile tpath >>= \case
-    Just start -> mapExceptT stToIO $ runGraph start completePG
+    Just start -> (start, )
+              <$> (mapExceptT stToIO $ runGraph start completePG)
     Nothing    -> throwE $ NoEntryPointWasGiven tmn tpath

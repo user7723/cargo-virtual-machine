@@ -6,7 +6,9 @@ maintainer:         jmp.loop@kittens.org
 
 library
   exposed-modules:
-      Assembler.IR.Aliases
+      Assembler
+    , Disassembler
+    , Assembler.IR.Aliases
     , Assembler.IR.FunctionDef
     , Assembler.IR.Module
     , Assembler.IR.Operator
@@ -15,7 +17,7 @@ library
     , Assembler.IR.InstructionSet
     , Assembler.IR.QLabel
     , Assembler.IR.Text
-    , Assembler.IR.RawFormat
+    , Assembler.IR.ProgramText
 
     , Assembler.Parser.Aliases
     , Assembler.Parser.FunctionDef
@@ -40,6 +42,7 @@ library
   build-depends:
       base
     , text
+    , bytestring
     , containers
     , transformers
     , filepath
@@ -48,6 +51,7 @@ library
     , megaparsec
     , parser-combinators
     , reinterpret-cast
+    , cereal
 
     , pretty-show
   hs-source-dirs:
@@ -62,6 +66,9 @@ library
     , TupleSections
     , ExplicitForAll
     , RecordWildCards
+    , NumericUnderscores
+    , BinaryLiterals
+    , MultiWayIf
 
 executable cvma
   main-is:
